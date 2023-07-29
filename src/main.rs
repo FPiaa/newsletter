@@ -1,7 +1,8 @@
 use std::net::TcpListener;
 
-use newsletter::app_server;
 use newsletter::configuration;
+use newsletter::startup::create_app_server;
+use sqlx::PgPool;
 
 #[tokio::main]
 async fn main() -> hyper::Result<()> {
@@ -15,5 +16,8 @@ async fn main() -> hyper::Result<()> {
     let address = format!("127.0.0.1:{}", configuration.database.port);
 
     let listener = TcpListener::bind(address).unwrap();
-    app_server(listener).await
+    let db_pool = PgPool::connect(&configuration.database.connection_string())
+        .await
+        .expect("Unable to connect with database");
+    create_app_server(listener, db_pool.clone()).await
 }

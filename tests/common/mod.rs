@@ -1,10 +1,14 @@
 use newsletter::{
     configuration::{get_configuration, DatabaseSettings},
     startup,
+    telemetry::{get_subscriber, init_subscriber},
 };
 use sqlx::{Executor, PgPool};
 
 use std::net::TcpListener;
+use std::sync::OnceLock;
+
+static TRACING: OnceLock<()> = OnceLock::new();
 
 pub struct TestApp {
     pub address: String,
@@ -12,6 +16,11 @@ pub struct TestApp {
 }
 
 pub(crate) async fn spawn_app() -> TestApp {
+    let _ = TRACING.get_or_init(|| {
+        let subscriber = get_subscriber("test".into(), "debug".into());
+        init_subscriber(subscriber);
+    });
+
     let listener = TcpListener::bind("127.0.0.1:0")
         .expect("Failed to bind a tcp listener to a random port in spawn_app");
 

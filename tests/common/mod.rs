@@ -17,8 +17,13 @@ pub struct TestApp {
 
 pub(crate) async fn spawn_app() -> TestApp {
     let _ = TRACING.get_or_init(|| {
-        let subscriber = get_subscriber("test".into(), "debug".into());
-        init_subscriber(subscriber);
+        if std::env::var("TEST_LOG").is_ok() {
+            let subscriber = get_subscriber("test".into(), "debug".into(), std::io::stdout);
+            init_subscriber(subscriber);
+        } else {
+            let subscriber = get_subscriber("test".into(), "debug".into(), std::io::sink);
+            init_subscriber(subscriber);
+        };
     });
 
     let listener = TcpListener::bind("127.0.0.1:0")

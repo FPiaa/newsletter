@@ -15,11 +15,35 @@ pub struct DatabaseSettings {
     pub database_name: String,
 }
 
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            application_port: 8000,
+            database: DatabaseSettings::default(),
+        }
+    }
+}
+
+impl Default for DatabaseSettings {
+    fn default() -> Self {
+        Self {
+            host: "localhost".into(),
+            username: "postgres".into(),
+            password: "password".into(),
+            port: 5432,
+            database_name: "newsletter".into(),
+        }
+    }
+}
+
 pub fn get_configuration() -> Result<AppSettings, config::ConfigError> {
-    config::Config::builder()
+    let configs = config::Config::builder()
         .add_source(config::File::with_name("configuration"))
-        .build()?
-        .try_deserialize()
+        .build();
+    match configs {
+        Ok(config) => config.try_deserialize(),
+        Err(_) => Ok(AppSettings::default()),
+    }
 }
 
 impl DatabaseSettings {

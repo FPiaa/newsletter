@@ -6,7 +6,6 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 pub(crate) struct SubscriptionInput {
     name: String,
     email: String,
@@ -18,12 +17,12 @@ pub(crate) async fn handle_subscription(
 ) -> StatusCode {
     let query_return = sqlx::query!(
         r#"
-            INSERT INTO subscriptions (id, email, name, subscribed_at) VALUES ($1, $2, $3, $4)
+            INSERT INTO subscriptions (email, name, subscribed_at, id) VALUES ($1, $2, $3, $4)
         "#,
-        Uuid::new_v4(),
         input.email,
         input.name,
-        Utc::now()
+        Utc::now(),
+        Uuid::new_v4(),
     )
     .execute(&db)
     .await;

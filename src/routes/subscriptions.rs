@@ -3,7 +3,6 @@ use chrono::Utc;
 use hyper::StatusCode;
 use serde::Deserialize;
 use sqlx::PgPool;
-use tracing_futures::Instrument;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
@@ -12,24 +11,30 @@ pub(crate) struct SubscriptionInput {
     email: String,
 }
 
+#[tracing::instrument(
+    name = "Adding new user",
+    skip(db, input),
+    fields(
+        subscriber_email = %input.email,
+        subscriber_name = %input.name
+    )
+)]
 pub(crate) async fn handle_subscription(
     State(db): State<PgPool>,
     Form(input): Form<SubscriptionInput>,
 ) -> StatusCode {
-    let request_id = Uuid::new_v4();
+    match insert_subscriber(&input, &db).await {
+        Ok(_) => StatusCode::CREATED,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
 
-    let request_span = tracing::info_span!(
-        "Adding a new subscriber. ",
-        %request_id,
-        subscriber_email = %input.email,
-        subscriber_name = %input.name
-    );
-
-    let _request_span_guard = request_span.enter();
-
-    let query_span = tracing::info_span!("Saving new subscriber to the database.");
-
-    let query_return = sqlx::query!(
+#[tracing::instrument(skip(input, pool))]
+pub(crate) async fn insert_subscriber(
+    input: &SubscriptionInput,
+    pool: &PgPool,
+) -> Result<(), sqlx::Error> {
+    let _ = sqlx::query!(
         r#"
             INSERT INTO subscriptions (email, name, subscribed_at, id) VALUES ($1, $2, $3, $4)
         "#,
@@ -38,26 +43,12 @@ pub(crate) async fn handle_subscription(
         Utc::now(),
         Uuid::new_v4(),
     )
-    .execute(&db)
-    .instrument(query_span)
-    .await;
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to execute query {e:?}");
+        e
+    })?;
 
-    match query_return {
-        Ok(_) => {
-            tracing::info!(
-                "Request ID {request_id} -> User {} {} was create sucessfully",
-                input.name,
-                input.email
-            );
-            StatusCode::CREATED
-        }
-        Err(e) => {
-            tracing::error!(
-                "Request ID {request_id} -> An error {e:?} happened while registering user {} {}",
-                input.name,
-                input.email
-            );
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
+    Ok(())
 }

@@ -1,10 +1,9 @@
-use std::net::TcpListener;
-
 use axum::{
     routing::{get, post},
     Router,
 };
 use sqlx::PgPool;
+use std::net::TcpListener;
 
 use crate::routes::{health_check::health_check, subscriptions::handle_subscription};
 

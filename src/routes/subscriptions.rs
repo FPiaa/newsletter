@@ -5,7 +5,7 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::{NewSubscriber, SubscriberName};
+use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct SubscriptionInput {
@@ -32,10 +32,12 @@ pub(crate) async fn handle_subscription(
         Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
     };
 
-    let new_subscriber = NewSubscriber {
-        email: input.email,
-        name,
+    let email = match SubscriberEmail::parse(input.email) {
+        Ok(email) => email,
+        Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
     };
+
+    let new_subscriber = NewSubscriber { email, name };
 
     match insert_subscriber(&new_subscriber, &db).await {
         Ok(_) => StatusCode::CREATED,
@@ -52,7 +54,7 @@ pub(crate) async fn insert_subscriber(
         r#"
             INSERT INTO subscriptions (email, name, subscribed_at, id) VALUES ($1, $2, $3, $4)
         "#,
-        subscriber.email,
+        subscriber.email.as_ref(),
         subscriber.name.as_ref(),
         Utc::now(),
         Uuid::new_v4(),

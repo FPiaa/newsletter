@@ -27,12 +27,12 @@ pub(crate) async fn handle_subscription(
     State(db): State<PgPool>,
     Form(input): Form<SubscriptionInput>,
 ) -> StatusCode {
-    let name = match SubscriberName::parse(input.name) {
+    let name = match SubscriberName::try_from(input.name) {
         Ok(name) => name,
         Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
     };
 
-    let email = match SubscriberEmail::parse(input.email) {
+    let email = match SubscriberEmail::try_from(input.email) {
         Ok(email) => email,
         Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
     };

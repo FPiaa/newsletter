@@ -5,6 +5,8 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::{NewSubscriber, SubscriberName};
+
 #[derive(Debug, Deserialize)]
 pub(crate) struct SubscriptionInput {
     name: String,
@@ -19,27 +21,39 @@ pub(crate) struct SubscriptionInput {
         subscriber_name = %input.name
     )
 )]
+
+// TODO: make handle subscription return a Result<StatusCode, ProcessingError(?)>
 pub(crate) async fn handle_subscription(
     State(db): State<PgPool>,
     Form(input): Form<SubscriptionInput>,
 ) -> StatusCode {
-    match insert_subscriber(&input, &db).await {
+    let name = match SubscriberName::parse(input.name) {
+        Ok(name) => name,
+        Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
+    };
+
+    let new_subscriber = NewSubscriber {
+        email: input.email,
+        name,
+    };
+
+    match insert_subscriber(&new_subscriber, &db).await {
         Ok(_) => StatusCode::CREATED,
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
-#[tracing::instrument(skip(input, pool))]
+#[tracing::instrument(skip(subscriber, pool))]
 pub(crate) async fn insert_subscriber(
-    input: &SubscriptionInput,
+    subscriber: &NewSubscriber,
     pool: &PgPool,
 ) -> Result<(), sqlx::Error> {
     let _ = sqlx::query!(
         r#"
             INSERT INTO subscriptions (email, name, subscribed_at, id) VALUES ($1, $2, $3, $4)
         "#,
-        input.email,
-        input.name,
+        subscriber.email,
+        subscriber.name.as_ref(),
         Utc::now(),
         Uuid::new_v4(),
     )

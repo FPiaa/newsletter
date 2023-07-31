@@ -1,45 +1,26 @@
 use axum::extract::{Form, State};
 use chrono::Utc;
 use hyper::StatusCode;
-use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct SubscriptionInput {
-    name: String,
-    email: String,
-}
+use crate::domain::NewSubscriber;
 
 #[tracing::instrument(
     name = "Adding new user",
     skip(db, input),
     fields(
-        subscriber_email = %input.email,
-        subscriber_name = %input.name
+        subscriber_email = %input.email.as_ref(),
+        subscriber_name = %input.name.as_ref()
     )
 )]
 
 // TODO: make handle subscription return a Result<StatusCode, ProcessingError(?)>
 pub(crate) async fn handle_subscription(
     State(db): State<PgPool>,
-    Form(input): Form<SubscriptionInput>,
+    Form(input): Form<NewSubscriber>,
 ) -> StatusCode {
-    let name = match SubscriberName::try_from(input.name) {
-        Ok(name) => name,
-        Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
-    };
-
-    let email = match SubscriberEmail::try_from(input.email) {
-        Ok(email) => email,
-        Err(_) => return StatusCode::UNPROCESSABLE_ENTITY,
-    };
-
-    let new_subscriber = NewSubscriber { email, name };
-
-    match insert_subscriber(&new_subscriber, &db).await {
+    match insert_subscriber(&input, &db).await {
         Ok(_) => StatusCode::CREATED,
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }

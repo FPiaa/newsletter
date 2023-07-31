@@ -1,4 +1,7 @@
-#[derive(Debug)]
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+#[serde(try_from = "String")]
 pub struct SubscriberEmail(String);
 
 impl AsRef<str> for SubscriberEmail {

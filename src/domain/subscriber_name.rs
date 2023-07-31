@@ -1,6 +1,8 @@
+use serde::Deserialize;
 use unicode_segmentation::UnicodeSegmentation;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(try_from = "String")]
 pub struct SubscriberName(String);
 
 impl AsRef<str> for SubscriberName {
